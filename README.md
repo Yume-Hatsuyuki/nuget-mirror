@@ -113,7 +113,7 @@ dotnet add package BepInEx.Core --version 5.4.21
 <configuration>
   <packageSources>
     <clear />
-    <add key="YumeHatsuyuki_Mirror" value="https://nuget.yume-hatsuyuki.moe/v3/index.json" protocolVersion="3" />
+    <add key="YumeHatsuyuki_Mirror" value="https://nuget-mirror.yume-hatsuyuki.moe/v3/index.json" protocolVersion="3" />
   </packageSources>
   <disabledPackageSources>
     <clear />
