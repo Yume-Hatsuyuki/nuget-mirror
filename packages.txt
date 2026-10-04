@@ -1,0 +1,15 @@
+# ============================================================
+# 在这里一行一个写命令, 提交后 GitHub Actions 会自动:
+#   1) 从在线源(nuget.org + BepInEx)拉取这些包及其全部依赖
+#   2) 合并进仓库的 nupkg-packages/ (自动提 PR 并合并), Cloudflare 随后自动部署
+# 只识别 "dotnet add package ..." 开头的行, # 开头是注释。
+# 支持 --version / --prerelease 等参数。
+# ============================================================
+
+# 目标框架(分号分隔)。依赖会按这些框架解析, 不确定就全留着:
+# frameworks: netstandard2.0;net35;net472
+
+dotnet add package BepInEx.Core --version 5.4.21
+dotnet add package BepInEx.Analyzers --version 1.0.8
+dotnet add package BepInEx.PluginInfoProps --version 2.1.0
+dotnet add package HarmonyX --version 2.16.1

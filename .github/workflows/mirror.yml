@@ -1,0 +1,87 @@
+name: Fetch packages
+
+# 修改 packages.txt 并提交 -> 从在线源拉取包+全部依赖 -> 合并进 nupkg-packages/
+# -> 自动提 PR 并合并 -> Cloudflare Pages 监听到 main 更新后自动构建部署。
+# 也可在 Actions 页面手动 Run workflow。
+on:
+  push:
+    branches: [main]
+    paths:
+      - packages.txt
+      - scripts/prepare.sh
+      - .github/workflows/mirror.yml
+  workflow_dispatch:
+
+concurrency:
+  group: fetch-packages
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: 按 packages.txt 拉取包及全部依赖
+        run: |
+          set -euo pipefail
+          bash scripts/prepare.sh packages.txt
+          dotnet restore work/fetch.csproj --packages "$PWD/pkgs" --configfile work/NuGet.Config
+          echo "共拉取 $(find pkgs -name '*.nupkg' | wc -l) 个 nupkg"
+
+      - name: 合并进 nupkg-packages/ (只增改, 不删除)
+        run: |
+          set -euo pipefail
+          mkdir -p nupkg-packages
+          find pkgs -name '*.nupkg' -exec cp -f {} nupkg-packages/ \;
+          oversize=$(find nupkg-packages -name '*.nupkg' -size +25M)
+          if [ -n "$oversize" ]; then
+            echo "::warning::以下文件超过 Cloudflare Pages 25 MiB 单文件限制, 部署会失败, 请改用 R2 或删除:"
+            echo "$oversize"
+          fi
+
+      - name: 提交 (PR 自动合并 / 或直接提交)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIRECT_COMMIT: ${{ vars.DIRECT_COMMIT }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A nupkg-packages
+          if git diff --cached --quiet; then
+            echo "镜像已是最新, 没有变化。"
+            echo "### 没有变化, 镜像已是最新" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          n=$(git diff --cached --name-only | wc -l)
+          git diff --cached --name-only | sed 's#.*/#- #' >> /tmp/changes.txt
+          { echo "### 新增/更新 $n 个文件"; cat /tmp/changes.txt; } >> "$GITHUB_STEP_SUMMARY"
+          msg="chore: 更新镜像包 ($n 个文件)"
+          if [ "${DIRECT_COMMIT:-}" = "true" ]; then
+            git commit -m "$msg"
+            git push origin HEAD:main
+          else
+            # 分支名带上 run_attempt, 重试时不会和上次失败遗留的分支冲突
+            br="mirror/update-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            git switch -c "$br"
+            git commit -m "$msg"
+            git push origin "$br"
+            if gh pr create --base main --head "$br" --title "$msg" \
+                 --body "由 GitHub Actions 根据 packages.txt 自动拉取。变更文件:"$'\n\n'"$(cat /tmp/changes.txt)"; then
+              gh pr merge "$br" --squash --delete-branch
+            else
+              echo "::warning::无法创建 PR (多半是没开启 Settings->Actions->General 里的 'Allow GitHub Actions to create and approve pull requests'), 已改为直接提交到 main。"
+              git push origin HEAD:main
+              git push origin --delete "$br" || true
+            fi
+          fi

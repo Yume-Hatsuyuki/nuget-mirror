@@ -1,0 +1,26 @@
+name: Verify mirror
+
+# 手动运行: 只用已部署的镜像源(不含 nuget.org/BepInEx)做一次干净还原,
+# 通过说明镜像完整, 失败说明缺包或尚未部署完成。
+# 需要仓库 Variables: SITE_URL
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: ${{ vars.SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: 仅用镜像源还原
+        run: |
+          set -euo pipefail
+          [ -n "$SITE_URL" ] || { echo "::error::请先设置仓库 Variables: SITE_URL"; exit 1; }
+          bash scripts/prepare.sh packages.txt
+          dotnet restore work/fetch.csproj --packages "$PWD/vpkgs" --no-cache --force \
+            --source "${SITE_URL%/}/v3/index.json"
+          echo "### 验证通过: 仅凭镜像源即可完整还原" >> "$GITHUB_STEP_SUMMARY"
