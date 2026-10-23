@@ -14,4 +14,5 @@ dotnet add package BepInEx.Analyzers --version 1.0.8
 dotnet add package BepInEx.PluginInfoProps --version 2.1.0
 dotnet add package HarmonyX --version 2.16.1
 dotnet add package Microsoft.CodeAnalysis --version 5.9.0
-dotnet add package BepInEx.AssemblyPublicizer --version 0.4.3
+# BepInEx.AssemblyPublicizer 只提供 netstandard2.0 (net472 可经此兼容), 不支持 net35, 故跳过 net35
+dotnet add package BepInEx.AssemblyPublicizer --version 0.4.3 --skip-framework net35

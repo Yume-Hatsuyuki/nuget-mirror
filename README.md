@@ -84,6 +84,11 @@ dotnet add package BepInEx.Core --version 5.4.21
 - 一行一条，只识别 `dotnet add package ...` 开头的行，其他内容会报错
 - `#` 开头是注释，空行忽略
 - 支持 `--version`、`--prerelease` 等参数
+- 包不支持 `frameworks` 里的某个框架时，在行尾加 `--skip-framework <框架>`（多个用逗号分隔），例如：
+  ```
+  dotnet add package BepInEx.AssemblyPublicizer --version 0.4.3 --skip-framework net35
+  ```
+  不加的话，只要有一个框架不兼容，整个镜像的还原都会失败（NU1202）
 - 目标框架在这一行设置，依赖会按这些框架解析：
   ```
   # frameworks: netstandard2.0;net35;net472
@@ -147,6 +152,7 @@ Actions → Verify mirror → Run workflow。它只用你部署好的镜像源�
 | 构建日志提示 `python3: not found` | 在构建变量里加 `PYTHON_VERSION = 3.12` |
 | `dotnet nuget list source` 里源显示"已禁用" | 本地 `NuGet.Config` 缺少 `<disabledPackageSources><clear />` |
 | restore 报 `NU1101`（找不到包） | 镜像里缺这个包或它的依赖，补进 `packages.txt` 后重新运行，用 Verify mirror 检查 |
+| Actions 报 `NU1202`（包不兼容某个框架，如 `not compatible with net35`） | 该包不支持 `frameworks` 里的这个框架。在 `packages.txt` 对应行末尾加 `--skip-framework <框架>` |
 | restore 报 `Unable to load the service index` | `SITE_URL` 对应的地址打不开，浏览器先访问 `/v3/index.json` 看能否看到 JSON |
 | 部署失败，提示文件过大 | 单个文件上限 25 MiB，超过的包需要改用 R2 |
 | 某个旧版本又出现了 | 它还在 `packages.txt` 里，把对应的行也删掉 |
